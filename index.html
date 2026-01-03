@@ -1,23 +1,30 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <title>RA Música no Copo</title>
+  <meta charset="utf-8">
 
-  <!-- A-Frame + AR.js -->
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
+  <meta name="viewport"
+        content="width=device-width,
+                 initial-scale=1.0,
+                 maximum-scale=1.0,
+                 user-scalable=no">
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>AR Copo Musical</title>
+
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.4/aframe/build/aframe-ar.min.js"></script>
 
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
       overflow: hidden;
+      background: black;
       font-family: Arial, sans-serif;
+      touch-action: none;
+      overscroll-behavior: none;
     }
 
-    /* HUD fixo */
     #hud {
       position: fixed;
       bottom: 24px;
@@ -31,7 +38,7 @@
       align-items: center;
       gap: 10px;
       font-size: 18px;
-      padding: 14px 24px;
+      padding: 14px 26px;
       border-radius: 999px;
       border: none;
       background: #111;
@@ -42,110 +49,89 @@
 
     #botao:disabled {
       opacity: 0.6;
-      cursor: not-allowed;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- HUD -->
-  <div id="hud">
-    <button id="botao" disabled>
-      ▶️ <span>Aguarde</span>
-    </button>
-  </div>
+<div id="hud">
+  <button id="botao" disabled>
+    ▶️ <span>Aguarde</span>
+  </button>
+</div>
 
-  <!-- Cena AR -->
-  <a-scene
-    embedded
-    arjs="sourceType: webcam; debugUIEnabled: false;"
-    renderer="logarithmicDepthBuffer: true;"
-  >
+<a-scene
+  id="scene"
+  embedded
+  vr-mode-ui="enabled: false"
+  arjs="sourceType: webcam;
+        trackingMethod: best;
+        debugUIEnabled: false;
+        detectionMode: mono;
+        matrixCodeType: 3x3;">
+  
+  <!-- Marcador DESATIVADO NO INÍCIO -->
+  <a-marker
+    id="marker"
+    type="pattern"
+    url="seu-marcador.patt"
+    visible="false">
 
-    <!-- Assets -->
-    <a-assets>
-      <img id="imagem" src="modelo.png">
-      <audio id="audio" src="musica.mp3" preload="auto"></audio>
-    </a-assets>
+    <a-image
+      src="modelo.png"
+      position="0 0 0"
+      rotation="-90 0 0"
+      scale="1 1 1">
+    </a-image>
 
-    <!-- Marcador -->
-    <a-marker type="pattern" url="seu-marcador.patt" id="marcador">
+    <a-sound
+      id="musica"
+      src="musica.mp3"
+      loop="true">
+    </a-sound>
 
-      <!-- Imagem em RA -->
-      <a-image
-        src="#imagem"
-        position="0 0 0"
-        rotation="-90 0 0"
-        width="1"
-        height="1"
-      ></a-image>
+  </a-marker>
 
-      <!-- Som -->
-      <a-sound id="som" src="#audio"></a-sound>
+  <!-- Câmera fixa -->
+  <a-entity
+    camera
+    look-controls="enabled: false"
+    wasd-controls="enabled: false"
+    fov="80">
+  </a-entity>
 
-    </a-marker>
+</a-scene>
 
-    <!-- Câmera SEM ZOOM AUTOMÁTICO -->
-    <a-entity
-      camera
-      look-controls="enabled: false"
-      wasd-controls="enabled: false"
-      fov="80"
-    ></a-entity>
+<script>
+  const marker = document.getElementById("marker");
+  const botao = document.getElementById("botao");
+  const texto = botao.querySelector("span");
+  const musica = document.getElementById("musica");
 
-  </a-scene>
+  let tocando = false;
 
-  <!-- Script -->
-  <script>
-    const botao = document.getElementById("botao");
-    const texto = botao.querySelector("span");
-    const som = document.getElementById("som");
-    const marcador = document.getElementById("marcador");
+  // 🔒 Aguarda câmera estabilizar antes de ativar tracking
+  setTimeout(() => {
+    marker.setAttribute("visible", "true");
+    botao.disabled = false;
+    texto.textContent = "Tocar";
+  }, 1200);
 
-    let tocando = false;
-    let volume = 0;
-
-    // Ativa botão quando marcador aparece
-    marcador.addEventListener("markerFound", () => {
-      botao.disabled = false;
+  botao.addEventListener("click", () => {
+    if (!tocando) {
+      musica.components.sound.playSound();
+      botao.firstChild.textContent = "⏸️ ";
+      texto.textContent = "Pausar";
+      tocando = true;
+    } else {
+      musica.components.sound.pauseSound();
+      botao.firstChild.textContent = "▶️ ";
       texto.textContent = "Tocar";
-    });
-
-    marcador.addEventListener("markerLost", () => {
-      som.components.sound.pauseSound();
       tocando = false;
-      texto.textContent = "Tocar";
-    });
-
-    // Fade in suave
-    function fadeIn() {
-      volume = 0;
-      som.setAttribute("sound", "volume", volume);
-
-      const intervalo = setInterval(() => {
-        volume += 0.05;
-        som.setAttribute("sound", "volume", volume);
-
-        if (volume >= 1) clearInterval(intervalo);
-      }, 120);
     }
-
-    botao.addEventListener("click", () => {
-      if (!tocando) {
-        som.components.sound.playSound();
-        fadeIn();
-        texto.textContent = "Pausar";
-        botao.firstChild.textContent = "⏸️ ";
-        tocando = true;
-      } else {
-        som.components.sound.pauseSound();
-        texto.textContent = "Tocar";
-        botao.firstChild.textContent = "▶️ ";
-        tocando = false;
-      }
-    });
-  </script>
+  });
+</script>
 
 </body>
 </html>
